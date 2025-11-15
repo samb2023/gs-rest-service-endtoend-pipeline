@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = "ghcr.io/samb2023/my-image"   // repo/name in GHCR
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -10,8 +14,28 @@ pipeline {
 
         stage('Build with Maven') {
             steps {
-                // -f complete/pom.xml because the pom is inside the complete folder
                 sh 'mvn -f complete/pom.xml clean package'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    dockerImage = docker.build("${IMAGE_NAME}:${BUILD_NUMBER}")
+                }
+            }
+        }
+
+        stage('Push to GHCR') {
+            steps {
+                script {
+                    docker.withRegistry('https://ghcr.io', 'git-code') {
+                        // Push versioned tag
+                        dockerImage.push("${BUILD_NUMBER}")
+                        // Push 'latest'
+                        dockerImage.push("latest")
+                    }
+                }
             }
         }
     }
