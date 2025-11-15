@@ -2,7 +2,8 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "ghcr.io/samb2023/my-image"   // repo/name in GHCR
+        // Final image path in GHCR
+        IMAGE_NAME = "ghcr.io/samb2023/my-image"
     }
 
     stages {
@@ -12,15 +13,10 @@ pipeline {
             }
         }
 
-        stage('Build with Maven') {
-            steps {
-                sh 'mvn -f complete/pom.xml clean package'
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
                 script {
+                    // Uses your multi-stage Dockerfile in repo root
                     dockerImage = docker.build("${IMAGE_NAME}:${BUILD_NUMBER}")
                 }
             }
@@ -29,10 +25,9 @@ pipeline {
         stage('Push to GHCR') {
             steps {
                 script {
+                    // 'git-code' must be the Jenkins credential ID
                     docker.withRegistry('https://ghcr.io', 'git-code') {
-                        // Push versioned tag
                         dockerImage.push("${BUILD_NUMBER}")
-                        // Push 'latest'
                         dockerImage.push("latest")
                     }
                 }
@@ -42,7 +37,8 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'complete/target/*.jar', fingerprint: true
+            // There is no jar in workspace now (jar built *inside* image),
+            // so archiving can be skipped or left out.
             cleanWs()
         }
     }
